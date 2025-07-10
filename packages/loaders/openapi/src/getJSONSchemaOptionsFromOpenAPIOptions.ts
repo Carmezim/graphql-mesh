@@ -1,7 +1,7 @@
 import { OperationTypeNode } from 'graphql';
 import type { JSONSchemaObject } from 'json-machete';
 import { dereferenceObject, handleUntitledDefinitions, resolvePath } from 'json-machete';
-import type { OpenAPIV2, OpenAPIV3 } from 'openapi-types';
+import type { OpenAPIV2, OpenAPIV3_1 } from 'openapi-types';
 import { process } from '@graphql-mesh/cross-helpers';
 import { futureAdditions } from '@graphql-mesh/fusion-composition';
 import {
@@ -55,7 +55,7 @@ const defaultHateoasConfig: HATEOASConfig = {
 };
 
 interface GetJSONSchemaOptionsFromOpenAPIOptionsParams {
-  source: OpenAPIV3.Document | OpenAPIV2.Document | string;
+  source: OpenAPIV3_1.Document | OpenAPIV2.Document | string;
   fallbackFormat?: 'json' | 'yaml' | 'js' | 'ts';
   cwd?: string;
   fetch?: MeshFetch;
@@ -71,12 +71,12 @@ interface GetJSONSchemaOptionsFromOpenAPIOptionsParams {
 
 type FutureLink = (
   name: string,
-  oasDoc: OpenAPIV3.Document | OpenAPIV2.Document,
+  oasDoc: OpenAPIV3_1.Document | OpenAPIV2.Document,
   methodObjFieldMap: MethodObjFieldMap,
 ) => boolean;
 
 type MethodObjFieldMap = WeakMap<
-  OpenAPIV2.OperationObject | OpenAPIV3.OperationObject,
+  OpenAPIV2.OperationObject | OpenAPIV3_1.OperationObject,
   JSONSchemaHTTPJSONOperationConfig & {
     responseByStatusCode: Record<string, JSONSchemaOperationResponseConfig>;
   }
@@ -87,7 +87,7 @@ export interface HATEOASContext {
   loadedSchemas: Map<
     string,
     {
-      oasDoc: OpenAPIV3.Document | OpenAPIV2.Document;
+      oasDoc: OpenAPIV3_1.Document | OpenAPIV2.Document;
       methodObjFieldMap: MethodObjFieldMap;
     }
   >;
@@ -138,7 +138,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
   }
   const schemaHeadersFactory = getInterpolatedHeadersFactory(schemaHeaders);
   logger?.debug(`Fetching OpenAPI Document from ${source}`);
-  let oasOrSwagger: OpenAPIV3.Document | OpenAPIV2.Document;
+  let oasOrSwagger: OpenAPIV3_1.Document | OpenAPIV2.Document;
   const readFileOrUrlForJsonMachete = (path: string, opts: { cwd: string }) =>
     readFileOrUrl(path, {
       cwd: opts.cwd,
@@ -170,7 +170,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
   handleUntitledDefinitions(oasOrSwagger);
 
   for (const [_name, schema] of Object.entries(
-    (oasOrSwagger as OpenAPIV3.Document).components?.schemas || {},
+    (oasOrSwagger as OpenAPIV3_1.Document).components?.schemas || {},
   )) {
     const mapping = (schema as any).discriminator?.mapping as Record<string, string>;
     if (mapping) {
@@ -185,7 +185,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
             logger.warn(`Unsupported discriminator mapping: ${value}`);
             continue;
           } else {
-            const schemaObj = (oasOrSwagger as OpenAPIV3.Document).components?.schemas?.[value];
+            const schemaObj = (oasOrSwagger as OpenAPIV3_1.Document).components?.schemas?.[value];
             if (!schemaObj) {
               logger.warn(`Invalid discriminator mapping: ${value}`);
               continue;
@@ -236,7 +236,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
   };
 
   const methodObjFieldMap = new WeakMap<
-    OpenAPIV2.OperationObject | OpenAPIV3.OperationObject,
+    OpenAPIV2.OperationObject | OpenAPIV3_1.OperationObject,
     OperationConfig
   >();
 
@@ -272,7 +272,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
       }
       const methodObj = pathObj[method as OpenAPIV2.HttpMethods] as
         | OpenAPIV2.OperationObject
-        | OpenAPIV3.OperationObject;
+        | OpenAPIV3_1.OperationObject;
       const operationConfig: OperationConfig = {
         method: method.toUpperCase() as HTTPMethod,
         path: relativePath,
@@ -306,7 +306,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
       for (const paramObjIndex in allParams) {
         const paramObj = allParams[paramObjIndex] as
           | OpenAPIV2.ParameterObject
-          | OpenAPIV3.ParameterObject;
+          | OpenAPIV3_1.ParameterObject;
         const argName = sanitizeNameForGraphQL(paramObj.name);
         const operationArgTypeMap = (operationConfig.argTypeMap =
           operationConfig.argTypeMap || {}) as Record<string, JSONSchemaObject>;
@@ -476,7 +476,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
         }
 
         const responseObj = methodObj.responses[responseKey] as
-          | OpenAPIV3.ResponseObject
+          | OpenAPIV3_1.ResponseObject
           | OpenAPIV2.ResponseObject;
 
         let schemaObj: JSONSchemaObject;
@@ -630,7 +630,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
                   possibleOasDoc: typeof oasOrSwagger,
                   possibleMethodObjFieldMap: typeof methodObjFieldMap,
                 ) {
-                  let actualOperation: OpenAPIV3.OperationObject;
+                  let actualOperation: OpenAPIV3_1.OperationObject;
                   let actualPath: string;
                   for (const path in possibleOasDoc.paths) {
                     const cleanPath = path.split('?')[0].replace(/{[^}]+}/g, '{}');
@@ -760,7 +760,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
           );
           responseByStatusCode[responseKey].links = responseByStatusCode[responseKey].links || {};
           for (const linkName in dereferencedLinkObj.links) {
-            const linkObj = responseObj.links[linkName] as OpenAPIV3.LinkObject;
+            const linkObj = responseObj.links[linkName] as OpenAPIV3_1.LinkObject;
             let args: Record<string, string>;
             if (linkObj.parameters) {
               args = {};
@@ -825,7 +825,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
 
       if ('callbacks' in methodObj) {
         for (const callbackKey in methodObj.callbacks) {
-          const callbackObj = methodObj.callbacks[callbackKey] as OpenAPIV3.CallbackObject;
+          const callbackObj = methodObj.callbacks[callbackKey] as OpenAPIV3_1.CallbackObject;
           for (const callbackUrlRefKey in callbackObj) {
             if (callbackUrlRefKey.startsWith('$')) {
               continue;
@@ -844,14 +844,14 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
             };
             const callbackUrlObj = callbackObj[callbackUrlRefKey];
             for (const method in callbackUrlObj) {
-              const callbackOperation: OpenAPIV3.OperationObject =
+              const callbackOperation: OpenAPIV3_1.OperationObject =
                 callbackUrlObj[method as OpenAPIV2.HttpMethods];
               callbackOperationConfig.pubsubTopic = `webhook:${method}:${pubsubTopicSuffix}`;
               callbackOperationConfig.field = callbackOperation.operationId;
               callbackOperationConfig.description =
                 callbackOperation.description || callbackOperation.summary;
               const requestBodyContents = (
-                callbackOperation.requestBody as OpenAPIV3.RequestBodyObject
+                callbackOperation.requestBody as OpenAPIV3_1.RequestBodyObject
               )?.content;
               if (requestBodyContents) {
                 callbackOperationConfig.responseSchema = requestBodyContents[
@@ -862,7 +862,7 @@ export async function getJSONSchemaOptionsFromOpenAPIOptions(
               if (responses) {
                 const response = responses[Object.keys(responses)[0]];
                 if (response) {
-                  const responseContents = (response as OpenAPIV3.ResponseObject).content;
+                  const responseContents = (response as OpenAPIV3_1.ResponseObject).content;
                   if (responseContents) {
                     callbackOperationConfig.requestSchema = responseContents[
                       Object.keys(responseContents)[0]
